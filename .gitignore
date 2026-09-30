@@ -1,0 +1,7 @@
+.opencode/ralph-loop.local.md
+.env.local
+.browser-profile/
+.venv/
+__pycache__/
+shopping.db
+shopping.db-*

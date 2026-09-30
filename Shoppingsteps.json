@@ -1,0 +1,294 @@
+{
+    "title": "Shopping",
+    "steps": [
+        {
+            "type": "setViewport",
+            "width": 1488,
+            "height": 910,
+            "deviceScaleFactor": 1,
+            "isMobile": false,
+            "hasTouch": false,
+            "isLandscape": false
+        },
+        {
+            "type": "navigate",
+            "url": "https://shop.tamimimarkets.com/",
+            "assertedEvents": [
+                {
+                    "type": "navigation",
+                    "url": "https://shop.tamimimarkets.com/",
+                    "title": "Tamimi Markets Online – Supermarket Delivery , Click & Collect in KSA"
+                }
+            ]
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "aria/what are you looking for?"
+                ],
+                [
+                    "input"
+                ],
+                [
+                    "xpath///*[@data-testid=\"search-form\"]/input"
+                ],
+                [
+                    "pierce/input"
+                ]
+            ],
+            "offsetY": 9.4375,
+            "offsetX": 261.4765625
+        },
+        {
+            "type": "change",
+            "value": "milk",
+            "selectors": [
+                [
+                    "aria/what are you looking for?"
+                ],
+                [
+                    "input"
+                ],
+                [
+                    "xpath///*[@data-testid=\"search-form\"]/input"
+                ],
+                [
+                    "pierce/input"
+                ]
+            ],
+            "target": "main"
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "aria/Fresh Milk Full Fat-200Ml"
+                ],
+                [
+                    "[data-testid='carousel'] > span:nth-of-type(1) img"
+                ],
+                [
+                    "xpath///*[@data-testid=\"product\"]/div[1]/span/img"
+                ],
+                [
+                    "pierce/[data-testid='carousel'] > span:nth-of-type(1) img"
+                ]
+            ],
+            "offsetY": 45.453125,
+            "offsetX": 84.2734375
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "div.ProductDetails__ImgAndCarouselDiv-sc-10zw1uf-2 rect:nth-of-type(2)"
+                ],
+                [
+                    "xpath///*[@data-testid=\"layout\"]/div[1]/main/div/div/div[1]/div[1]/div[1]/div[2]/div[2]/svg/g/g/rect[2]"
+                ],
+                [
+                    "pierce/div.ProductDetails__ImgAndCarouselDiv-sc-10zw1uf-2 rect:nth-of-type(2)"
+                ]
+            ],
+            "offsetY": 8.90625,
+            "offsetX": 2
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "aria/cart[role=\"image\"]"
+                ],
+                [
+                    "div.jaTOnk svg"
+                ],
+                [
+                    "xpath///*[@data-testid=\"layout\"]/div[1]/header/div/div[2]/div[3]/div[2]/div[3]/a/svg"
+                ],
+                [
+                    "pierce/div.jaTOnk svg"
+                ]
+            ],
+            "offsetY": 15.84375,
+            "offsetX": 6.5
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "div.cart__Substitution-sc-2dwxu7-56 > div > div > div"
+                ],
+                [
+                    "xpath///*[@data-testid=\"layout\"]/div[1]/main/div/div[2]/div[5]/div/div/div"
+                ],
+                [
+                    "pierce/div.cart__Substitution-sc-2dwxu7-56 > div > div > div"
+                ]
+            ],
+            "offsetY": 7.2109375,
+            "offsetX": 152.46875
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "main p:nth-of-type(1)"
+                ],
+                [
+                    "xpath///*[@data-testid=\"layout\"]/div[1]/main/div/div[2]/div[5]/div/div/div[2]/div/p[1]"
+                ],
+                [
+                    "pierce/main p:nth-of-type(1)"
+                ]
+            ],
+            "offsetY": 16.2109375,
+            "offsetX": 148.46875
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "div.cart__CartItems-sc-2dwxu7-10 rect:nth-of-type(2)"
+                ],
+                [
+                    "xpath///*[@data-testid=\"layout\"]/div[1]/main/div/div[2]/div[6]/div[2]/div/span[4]/div/div/svg[2]/g/g/rect[2]"
+                ],
+                [
+                    "pierce/div.cart__CartItems-sc-2dwxu7-10 rect:nth-of-type(2)"
+                ]
+            ],
+            "offsetY": 4.01092529296875,
+            "offsetX": 1.004638671875
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "div.cart__CartItems-sc-2dwxu7-10 rect:nth-of-type(2)"
+                ],
+                [
+                    "xpath///*[@data-testid=\"layout\"]/div[1]/main/div/div[2]/div[6]/div[2]/div/span[4]/div/div/svg[2]/g/g/rect[2]"
+                ],
+                [
+                    "pierce/div.cart__CartItems-sc-2dwxu7-10 rect:nth-of-type(2)"
+                ]
+            ],
+            "offsetY": 4.01092529296875,
+            "offsetX": 1.004638671875
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "div.cart__CartItems-sc-2dwxu7-10 rect:nth-of-type(2)"
+                ],
+                [
+                    "xpath///*[@data-testid=\"layout\"]/div[1]/main/div/div[2]/div[6]/div[2]/div/span[4]/div/div/svg[2]/g/g/rect[2]"
+                ],
+                [
+                    "pierce/div.cart__CartItems-sc-2dwxu7-10 rect:nth-of-type(2)"
+                ]
+            ],
+            "offsetY": 4.01092529296875,
+            "offsetX": 1.004638671875
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "div.cart__ButtonAndText-sc-2dwxu7-5 > button"
+                ],
+                [
+                    "xpath///*[@data-testid=\"layout\"]/div[1]/main/div/div[2]/div[4]/button"
+                ],
+                [
+                    "pierce/div.cart__ButtonAndText-sc-2dwxu7-5 > button"
+                ]
+            ],
+            "offsetY": 29.2109375,
+            "offsetX": 57.5546875
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "div.SlotSelector__StyledContainer-sc-c4wqtx-0 div:nth-of-type(2) > label"
+                ],
+                [
+                    "xpath///*[@data-testid=\"carousel\"]/div[2]/label"
+                ],
+                [
+                    "pierce/div.SlotSelector__StyledContainer-sc-c4wqtx-0 div:nth-of-type(2) > label"
+                ]
+            ],
+            "offsetY": 58.8125,
+            "offsetX": 51.1640625
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "div.SlotSelector__DayPick-sc-c4wqtx-2 div:nth-of-type(2)"
+                ],
+                [
+                    "xpath///*[@data-testid=\"carousel\"]/div[2]"
+                ],
+                [
+                    "pierce/div.SlotSelector__DayPick-sc-c4wqtx-2 div:nth-of-type(2)"
+                ]
+            ],
+            "offsetY": 58.8125,
+            "offsetX": 51.1640625
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "div.SlotSelector__StyledContainer-sc-c4wqtx-0 span:nth-of-type(2) > span"
+                ],
+                [
+                    "xpath///*[@data-testid=\"carousel\"]/span[2]/span"
+                ],
+                [
+                    "pierce/div.SlotSelector__StyledContainer-sc-c4wqtx-0 span:nth-of-type(2) > span"
+                ],
+                [
+                    "text/09:00 AM -  10:00"
+                ]
+            ],
+            "offsetY": 6.8125,
+            "offsetX": 115.640625
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "div:nth-of-type(3) > button"
+                ],
+                [
+                    "xpath///*[@data-testid=\"layout\"]/div[1]/main/div/div[2]/div[3]/button"
+                ],
+                [
+                    "pierce/div:nth-of-type(3) > button"
+                ]
+            ],
+            "offsetY": 33.90625,
+            "offsetX": 73
+        }
+    ]
+}
