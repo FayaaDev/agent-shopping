@@ -22,16 +22,22 @@ from browser_use.browser.watchdogs.local_browser_watchdog import LocalBrowserWat
 from shopping import PRODUCT_PLUS_SELECTOR
 
 
-# Product-image control structure observed on the failed yogurt page; no retailer calls.
+# Empty-cart markup observed read-only on the yogurt page; no retailer calls.
 PRODUCT_CONTROLS = '''
 <div class="ProductDetails__ImgAndCarouselDiv-sc-10zw1uf-2 bjZItJ">
-  <div class="Counter__Container-sc-1nu7oer-2 gFPpDi">
-    <svg id="minus"><g><circle/><rect/></g></svg>
-    <span>1</span>
-    <svg id="plus" class="Counter__StyledAddToCart-sc-1nu7oer-3 hIvriT" maxedout="0">
-      <g><circle/><g><rect/><rect/></g></g>
-    </svg>
+  <div class="ProductDetails__ImageDivWrapper-sc-10zw1uf-15 hlWRjW">
+    <div><svg id="plus" viewBox="0 0 40 40" color="#BE1E2E">
+      <g><circle cx="20" cy="20" r="20"/><g>
+        <rect width="4" height="16" x="6" rx="1" transform="rotate(90 8 8)"/>
+        <rect width="4" height="16" x="6" rx="1"/>
+      </g></g>
+    </svg></div>
+    <svg id="minus" viewBox="0 0 40 40"><rect width="4" height="16" transform="rotate(90 8 8)"/></svg>
+    <svg id="not-plus" viewBox="0 0 40 40"><rect width="4" height="16"/></svg>
   </div>
+</div>
+<div class="ProductDetails__MobileProductView-sc-other hash">
+  <svg viewBox="0 0 40 40"><rect width="4" height="16" transform="rotate(90 8 8)"/><rect width="4" height="16"/></svg>
 </div>
 <svg id="unrelated" class="Counter__StyledAddToCart-sc-other hash"></svg>
 '''
@@ -104,6 +110,11 @@ async def check_browser(profile, snapshot, executable, url):
         assert state["storage"], "Synthetic localStorage missing"
         assert len(await page.get_elements_by_css_selector(PRODUCT_PLUS_SELECTOR)) == 1
         assert await page.evaluate("(selector) => document.querySelector(selector).id", PRODUCT_PLUS_SELECTOR) == "plus"
+        # After the initial add, the retailer renders its classed quantity counter.
+        await page.evaluate("""() => {
+            document.getElementById('plus').outerHTML = '<div class="Counter__Container-sc-live hash"><span>1</span><svg id="plus" class="Counter__StyledAddToCart-sc-live hash"><g><circle/><g><rect/><rect/></g></g></svg></div>';
+        }""")
+        assert len(await page.get_elements_by_css_selector(PRODUCT_PLUS_SELECTOR)) == 1
         # Hashed classes and SVG nesting must not make the plus disappear.
         await page.evaluate("""() => {
             document.getElementById('plus').className.baseVal = 'Counter__StyledAddToCart-sc-new newHash';

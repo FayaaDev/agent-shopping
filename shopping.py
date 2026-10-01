@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import json
+import logging
 import math
 import os
 import re
@@ -17,10 +18,15 @@ from typing import Literal
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
+from run_logging import CURRENT_RUN, RunLogs
+
 
 PROFILE = Path(__file__).resolve().parent / ".browser-profile"
 SITE = "https://shop.tamimimarkets.com/"
-PRODUCT_PLUS_SELECTOR = '[class*="ProductDetails__ImgAndCarouselDiv"] svg[class*="Counter__StyledAddToCart"]'
+PRODUCT_PLUS_SELECTOR = ('[class*="ProductDetails__ImgAndCarouselDiv"] '
+                         'svg:is([class*="Counter__StyledAddToCart"], '
+                         '[viewBox="0 0 40 40"]:has(rect[width="4"][height="16"][transform="rotate(90 8 8)"])'
+                         ':has(rect[width="4"][height="16"]:not([transform])))')
 
 
 async def click_product_plus(browser):
@@ -324,7 +330,11 @@ brand/flavor/package is flexible; do not invent requirements or require a mainst
 brand. For an explicit package need, prefer the nearest sufficient size.
 For each automatic candidate set matches_request only if its semantic type AND ALL
 explicit attributes match; explain this in match_reason and quote visible product
-attributes in match_evidence. A negative or uncertain judgment is not eligible.
+attributes in match_evidence. For product, every candidate, and comparison, quote
+verbatim substrings of name, brand, or package_size only: quote values without labels,
+not price or SKU. Example: ["Al Safi Danone", "150G"], not ["Brand Al Safi Danone", "Size 150G"].
+Record observed price and SKU in unit_price and sku instead. A negative or uncertain
+judgment is not eligible.
 Observe name, SKU if visible, brand, package size, normalized package quantity/unit
 and unit price for every same-type candidate found in this run. Record product_url
 from the observed product page; navigate back to that exact page before adding.
@@ -333,8 +343,11 @@ Record exact_unavailable and approved_unavailable only for saved preferences/alt
 For automatic selections record requested_type, requested_brand only when specified,
 required_package_quantity and package_unit only for an explicit package requirement
 (otherwise null/empty), candidates, and comparison. Include qualifying existing cart
-products in candidates. Comparison is the least-expensive eligible observed candidate,
-using the nearest sufficient size only when a package requirement exists.
+products in candidates. Product and comparison must be unchanged copies of their
+entries in candidates, including match_reason and match_evidence. Comparison is the
+first least-expensive eligible candidate in candidate order when prices tie, using
+the nearest sufficient size only when a package requirement exists. Reuse the same
+recorded outcome for subsequent adds and the final summary; do not rewrite its evidence.
 With max_price, stay within that unit-price cap. Without it, selected price must
 be at most 115% of comparison price. Record comparison evidence even with a cap.
 Ambiguous type, insufficient package/evidence or a breached cap leaves the item
@@ -495,10 +508,46 @@ def create_llm():
     load_dotenv(".env.local")
     if not os.getenv("OPENAI_API_KEY", "").strip():
         raise ValueError("Set OPENAI_API_KEY in .env.local or your environment before running shop/readiness")
-    return ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4.1"), base_url=os.getenv("OPENAI_BASE_URL"))
+    options = dict(model=os.getenv("OPENAI_MODEL", "gpt-4.1"), base_url=os.getenv("OPENAI_BASE_URL"),
+                   temperature=None, frequency_penalty=None)
+    run = CURRENT_RUN.get()
+    if run is not None:
+        from importlib.metadata import version
+        run.attach_logging()
+        run.event("model_config", model=options["model"],
+                  endpoint=options["base_url"] or "https://api.openai.com/v1",
+                  dependencies={name: version(name) for name in ("browser-use", "openai", "pydantic", "httpx")})
+        options["http_client"] = run.make_client()
+    return ChatOpenAI(**options)
+
+
+def run_phase(phase):
+    run = CURRENT_RUN.get()
+    if run is not None:
+        run.phase = phase
+        run.event("phase_changed")
+        logging.getLogger("shopping").info("Phase: %s", phase)
+    return phase
+
+
+async def log_agent_step(agent):
+    run = CURRENT_RUN.get()
+    history = getattr(getattr(agent, "history", None), "history", [])
+    if run is not None and history:
+        step = history[-1]
+        output = step.model_output
+        run.event("agent_step", step=getattr(agent.state, "n_steps", None),
+                  actions=[action.model_dump(exclude_none=True) for action in output.action] if output else [],
+                  results=[{name: getattr(row, name, None) for name in
+                            ("error", "extracted_content", "is_done", "success")} for row in step.result or []])
 
 
 def write_result(path, data):
+    run = CURRENT_RUN.get()
+    if run is not None:
+        data = {**data, "run_id": run.run_id, "run_logs": str(run.path)}
+        run.outcome = data
+        run.event("result", result=data)
     if path is not None:
         Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -621,7 +670,7 @@ checkout, or log out. Close inspection menus once the selected location is verif
         max_actions_per_step=1, use_judge=False, register_new_step_callback=setup_guard,
         enable_signal_handler=False,
     )
-    checked = await check.run(max_steps=15)
+    checked = await check.run(max_steps=15, **({"on_step_end": log_agent_step} if CURRENT_RUN.get() else {}))
     try:
         ready = checked.structured_output
     except Exception as exc:
@@ -680,7 +729,8 @@ async def shop(site, items, db, location=None, result_file=None):
         mainstream_brand: bool = False
         matches_request: bool | None = None
         match_reason: str = ""
-        match_evidence: list[str] = Field(default_factory=list)
+        match_evidence: list[str] = Field(default_factory=list, description=
+            "Verbatim substrings of name, brand, or package_size only; quote values without labels, not price or SKU.")
 
     class ItemOutcome(BaseModel):
         item_name: str
@@ -691,8 +741,10 @@ async def shop(site, items, db, location=None, result_file=None):
         requested_brand: str | None = None
         required_package_quantity: float | None = Field(default=None, gt=0, allow_inf_nan=False)
         package_unit: str = ""
-        candidates: list[Product] = Field(default_factory=list)
-        comparison: Product | None = None
+        candidates: list[Product] = Field(default_factory=list, description=
+            "Observed qualifying candidates. Product and comparison must be unchanged copies of entries in this list.")
+        comparison: Product | None = Field(default=None, description=
+            "Unchanged copy of the first least-expensive eligible candidate; use candidate order to break price ties.")
         preferred_brand_available: bool | None = None
         exact_unavailable: bool = False
         approved_unavailable: bool = False
@@ -704,23 +756,23 @@ async def shop(site, items, db, location=None, result_file=None):
         unresolved: list[str]
         item_outcomes: list[ItemOutcome]
 
-    phase = "config"
+    phase = run_phase("config")
     browser = None
     saved = None
     try:
         llm = create_llm()
-        phase = "browser_startup"
+        phase = run_phase("browser_startup")
         browser = create_browser()
         await start_browser(browser, site)
-        phase = "readiness"
+        phase = run_phase("readiness")
         ready = await check_readiness(browser, llm, location)
         if not ready["success"]:
-            phase = "result_output"
+            phase = run_phase("result_output")
             write_result(result_file, ready)
             print("Login/address could not be verified. Run `uv run python shopping.py setup`, then retry shop.")
             return False
 
-        phase = "cart_planning"
+        phase = run_phase("cart_planning")
         plan_items = [{**item, "alternatives": rank_alternatives(item, os.getenv("TYPESAFE_API_KEY")) or item["alternatives"]}
                       for item in items]
 
@@ -809,7 +861,7 @@ async def shop(site, items, db, location=None, result_file=None):
                 last_url = state.url
                 last_run_level = run_level
 
-        phase = "cart_tools"
+        phase = run_phase("cart_tools")
         shopping_tools = Tools()
 
         @shopping_tools.action("Begin a requested item before searching. Exhausted items cannot be retried in this run.")
@@ -900,7 +952,7 @@ async def shop(site, items, db, location=None, result_file=None):
             item_quantities[item["name"]] = observed_item_quantity + 1
             return ActionResult(extracted_content="Clicked product + once. Verify the actual product quantity before any further add.")
 
-        phase = "cart_agent"
+        phase = run_phase("cart_agent")
         agent = Agent(
             task=shopping_task(site, plan_items, location),
             llm=llm, browser=browser,
@@ -910,11 +962,11 @@ async def shop(site, items, db, location=None, result_file=None):
             enable_signal_handler=False,
         )
         max_steps = max(30, len(items) * 15)
-        result = await agent.run(max_steps=max_steps)
-        phase = "cart_output"
+        result = await agent.run(max_steps=max_steps, **({"on_step_end": log_agent_step} if CURRENT_RUN.get() else {}))
+        phase = run_phase("cart_output")
         summary = result.structured_output
         if summary is None:
-            phase = "result_output"
+            phase = run_phase("result_output")
             write_result(result_file, no_summary_result(result, agent, max_steps, stop_reason))
             print(result.final_result() or "No verified cart summary returned")
             return False
@@ -941,16 +993,16 @@ async def shop(site, items, db, location=None, result_file=None):
             if not any(row["item_name"].casefold() == name.casefold() for row in data.get("item_outcomes", [])):
                 data.setdefault("item_outcomes", []).append({"item_name": name, "selection_mode": None,
                                                             "product": None, "unresolved_reason": reason})
-        phase = "assessment"
+        phase = run_phase("assessment")
         missing = assess(items, data)
         data["missing_or_over_cap"] = missing
-        phase = "persistence"
+        phase = run_phase("persistence")
         with db:
             attempt = db.execute("INSERT INTO attempts(summary) VALUES (?)", (json.dumps(data),)).lastrowid
             db.executemany("INSERT INTO prices VALUES (?, ?, ?)",
                            [(attempt, row.name, row.unit_price) for row in summary.cart])
         saved = {"attempt": attempt, "summary": data}
-        phase = "result_output"
+        phase = run_phase("result_output")
         print(json.dumps({"attempt": attempt, **data}, ensure_ascii=False, indent=2))
         success = (stop_reason is None and result.is_successful() is True and summary.slot is not None
                    and summary.stage == "slot_selected" and not missing and not data["unresolved"] and not unknown_unresolved)
@@ -971,6 +1023,7 @@ async def shop(site, items, db, location=None, result_file=None):
         raise
     finally:
         interruption = sys.exception()
+        run_phase("cleanup")
         try:
             if browser is not None:
                 try:
@@ -979,6 +1032,9 @@ async def shop(site, items, db, location=None, result_file=None):
                         await asyncio.to_thread(input, "Press Enter to finish and close the browser...")
                 finally:
                     await browser.kill()
+                    run = CURRENT_RUN.get()
+                    if run is not None:
+                        run.event("browser_cleanup_complete")
         except Exception as exc:
             if isinstance(interruption, (asyncio.CancelledError, KeyboardInterrupt)):
                 raise interruption from exc
@@ -1004,13 +1060,22 @@ async def run_browser_cli(workflow):
     try:
         return 0 if await workflow else 1
     except asyncio.CancelledError:
+        run = CURRENT_RUN.get()
+        if run is not None:
+            run.interrupted = True
+            run.event("interruption", exception_class="CancelledError", signal="SIGTERM" if terminated else None)
         if not terminated:
             raise
         return 143
     finally:
-        if os.name == "posix":
-            loop.remove_signal_handler(signal.SIGTERM)
-            signal.signal(signal.SIGTERM, previous)
+        try:
+            run = CURRENT_RUN.get()
+            if run is not None:
+                await run.close_client()
+        finally:
+            if os.name == "posix":
+                loop.remove_signal_handler(signal.SIGTERM)
+                signal.signal(signal.SIGTERM, previous)
 
 
 def main():
@@ -1046,7 +1111,12 @@ def main():
     check.add_argument("--location")
     check.add_argument("--result-file", type=Path, help="Also write readiness JSON to this file")
     args = parser.parse_args()
-    phase = "db_open"
+    run = RunLogs(args.db) if args.command == "shop" else None
+    if run is not None:
+        run.attach_logging()
+        run.event("run_start", command="shop", python=sys.version.split()[0])
+        print(f"Run logs: {run.path}", flush=True)
+    phase = run_phase("db_open")
     try:
         if args.command == "setup":
             asyncio.run(setup())
@@ -1092,19 +1162,22 @@ def main():
             elif args.command == "confirm-purchase":
                 confirm_purchase(db, args.attempt)
             elif args.command == "shop":
-                phase = "config"
+                phase = run_phase("config")
                 if urlsplit(args.site).hostname != "shop.tamimimarkets.com":
                     raise ValueError("Only Tamimi is supported for shopping")
-                phase = "list_read"
+                phase = run_phase("list_read")
                 items = read_items(db)
                 if not items:
                     raise ValueError("Empty list; run add first")
-                phase = "config"
+                phase = run_phase("config")
                 shopping_task(args.site, items, args.location)
                 status = asyncio.run(run_browser_cli(shop(args.site, items, db, args.location, args.result_file)))
-                phase = "cleanup"
+                phase = run_phase("cleanup")
                 return status
     except Exception as exc:
+        if run is not None:
+            logging.getLogger("shopping").exception("Shopping failed during %s", getattr(exc, "shopping_phase", phase))
+            write_result(None, error_result(exc, getattr(exc, "shopping_phase", phase)))
         if args.command == "shop":
             phase = getattr(exc, "shopping_phase", phase)
             if args.result_file is not None:
@@ -1119,6 +1192,14 @@ def main():
         elif not isinstance(exc, (OSError, ValueError, sqlite3.Error)):
             raise
         parser.error(str(exc))
+    finally:
+        if run is not None:
+            interruption = sys.exception()
+            if interruption is not None:
+                run.event("interruption", exception_class=type(interruption).__name__, message=str(interruption))
+            run.finish("interrupted" if getattr(run, "interrupted", False) or
+                       isinstance(interruption, (KeyboardInterrupt, asyncio.CancelledError))
+                       else "finished", result=getattr(run, "outcome", None))
     return 0
 
 

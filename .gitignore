@@ -7,3 +7,4 @@ server-data/
 __pycache__/
 shopping.db
 shopping.db-*
+shopping-runs/

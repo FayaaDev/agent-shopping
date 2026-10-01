@@ -1,0 +1,127 @@
+{
+  "status": "attempt_saved",
+  "success": false,
+  "attempt": 7,
+  "summary": {
+    "cart": [
+      {
+        "name": "Al Safi Danone Greek Yogurt Plain - 150G",
+        "quantity": 10,
+        "unit_price": 3.0
+      }
+    ],
+    "slot": "2026-10-01 06:00 PM - 07:00 PM",
+    "stage": "slot_selected",
+    "unresolved": [
+      "Greek yogurt"
+    ],
+    "item_outcomes": [
+      {
+        "item_name": "Greek yogurt",
+        "selection_mode": "automatic_substitution",
+        "product": {
+          "name": "Greek Yogurt Plain-150G",
+          "sku": "393093_1",
+          "product_url": "https://shop.tamimimarkets.com/product/greek-yogurt-plain-1",
+          "unit_price": 3.0,
+          "product_type": "Greek yogurt",
+          "brand": "Al Safi Danone",
+          "package_size": "150G",
+          "package_quantity": 150.0,
+          "package_unit": "g",
+          "mainstream_brand": false,
+          "matches_request": true,
+          "match_reason": "Explicitly identified as Greek yogurt; the request specified no brand, flavor, fat, dietary, or package constraints.",
+          "match_evidence": [
+            "Greek Yogurt Plain",
+            "Al Safi Danone",
+            "150G"
+          ]
+        },
+        "unresolved_reason": "quantity_unverified",
+        "requested_type": "Greek yogurt",
+        "requested_brand": null,
+        "required_package_quantity": null,
+        "package_unit": "",
+        "candidates": [
+          {
+            "name": "Al Safi Danone Greek Yogurt Mix Berries-150G",
+            "sku": null,
+            "product_url": null,
+            "unit_price": 3.0,
+            "product_type": "Greek yogurt",
+            "brand": "Al Safi Danone",
+            "package_size": "150G",
+            "package_quantity": 150.0,
+            "package_unit": "g",
+            "mainstream_brand": false,
+            "matches_request": true,
+            "match_reason": "Explicitly identified as Greek yogurt; the request specified no brand, flavor, fat, dietary, or package constraints.",
+            "match_evidence": [
+              "Greek Yogurt Mix Berries",
+              "Al Safi Danone",
+              "150G"
+            ]
+          },
+          {
+            "name": "Greek Yogurt Plain-150G",
+            "sku": "393093_1",
+            "product_url": "https://shop.tamimimarkets.com/product/greek-yogurt-plain-1",
+            "unit_price": 3.0,
+            "product_type": "Greek yogurt",
+            "brand": "Al Safi Danone",
+            "package_size": "150G",
+            "package_quantity": 150.0,
+            "package_unit": "g",
+            "mainstream_brand": false,
+            "matches_request": true,
+            "match_reason": "Explicitly identified as Greek yogurt; the request specified no brand, flavor, fat, dietary, or package constraints.",
+            "match_evidence": [
+              "Greek Yogurt Plain",
+              "Al Safi Danone",
+              "150G"
+            ]
+          }
+        ],
+        "comparison": {
+          "name": "Al Safi Danone Greek Yogurt Mix Berries-150G",
+          "sku": null,
+          "product_url": null,
+          "unit_price": 3.0,
+          "product_type": "Greek yogurt",
+          "brand": "Al Safi Danone",
+          "package_size": "150G",
+          "package_quantity": 150.0,
+          "package_unit": "g",
+          "mainstream_brand": false,
+          "matches_request": true,
+          "match_reason": "Explicitly identified as Greek yogurt; the request specified no brand, flavor, fat, dietary, or package constraints.",
+          "match_evidence": [
+            "Greek Yogurt Mix Berries",
+            "Al Safi Danone",
+            "150G"
+          ]
+        },
+        "preferred_brand_available": null,
+        "exact_unavailable": false,
+        "approved_unavailable": false
+      }
+    ],
+    "requested_items": [
+      {
+        "name": "Greek yogurt",
+        "quantity": 10,
+        "preferred_name": null,
+        "sku": null,
+        "brand": null,
+        "max_price": null,
+        "alternatives": []
+      }
+    ],
+    "missing_or_over_cap": [
+      "Greek yogurt"
+    ]
+  },
+  "run_id": "20261001T133429110942Z-7969311ad1b643009ba0c5ff31b58a0a",
+  "run_logs": "/Users/fayaamini/projy/agent-shopping/shopping-runs/20261001T133429110942Z-7969311ad1b643009ba0c5ff31b58a0a"
+}

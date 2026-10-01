@@ -39,6 +39,9 @@ one, the selection must cost no more than 115% of the cheapest eligible observed
 comparison (nearest sufficient size when specified). Missing or contradictory
 evidence leaves the item unresolved. Code validates evidence structure/quotes,
 saved brand, numeric package needs and prices; semantic interpretation is the agent's judgment.
+Evidence quotes use attribute values from name, brand or package size only, without
+labels, prices or SKUs. Selected product and comparison are unchanged candidate
+copies; equal-price comparisons use the first eligible candidate in observed order.
 
 Count all validated qualifying existing cart products and add only the deficit.
 Quantities are purchasable units: `Greek yogurt` quantity 10 can be satisfied by
@@ -52,6 +55,9 @@ leaves the item unresolved and allows other items to continue. Login/fulfillment
 failures, CAPTCHA, unsafe-action guards, missing/ambiguous product-plus controls,
 checkout failures, and the overall step budget stop the run; cart work is never
 automatically retried.
+The product-image plus selector handles both the initial unclassed two-bar SVG and
+the classed quantity-counter plus. It excludes mobile/card controls outside the
+image section and requires exactly one match before clicking.
 
 ## Model configuration
 
@@ -258,6 +264,26 @@ attempt ID when available; full shopping summaries and subprocess output are omi
 Files have owner-only mode `600`, rotate at 128 KiB, and retain two backups
 (`.1` and `.2`). Correlate Telegram's reference with these local records; a log
 write failure still returns a sanitized reply and releases the shopping lock.
+
+### Detailed shopping run logs
+
+Every `shop` command automatically prints a unique log directory beside its database:
+`shopping-runs/<UTC timestamp>-<run ID>/`. Readiness and shopping share this directory.
+In Docker it lives under `/data/shopping-runs/` (host: `server-data/data/shopping-runs/`).
+No `tee` or debug flag is needed. `--result-file` results include `run_id` and `run_logs`.
+
+- `run.log`: timestamped agent/tool messages, phases and exception tracebacks.
+- `events.jsonl`: model/endpoint and dependency versions, HTTP attempts and durations,
+  returned completion text **before JSON validation**, finish reasons/token counts,
+  HTTP errors, parsed actions/tool results, cleanup and final outcome. Match HTTP
+  requests and responses by `call_id`; filter `model_response` events to inspect the
+  complete malformed JSON rather than Pydantic's abbreviated error.
+
+Secrets are redacted before writing. Request messages/headers, cookies, browser
+storage, screenshots and images are excluded. Logs still contain private model,
+account and shopping text; review before sharing. Directories are owner-only (`700`)
+and files owner-only (`600`). The latest 20 completed runs are retained; active or
+abruptly killed runs are preserved. Telegram replies do not expose raw debug logs.
 
 ```sh
 docker compose stop bot
