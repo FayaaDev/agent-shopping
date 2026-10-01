@@ -20,10 +20,38 @@ deletes an item from the list, not the retailer's cart. Run
 `uv run python shopping.py clear` to empty the saved list, including its product
 preferences and approved alternatives. Purchase history, observed prices, and
 the retailer's cart are preserved. `prefer` sets an exact
-preferred product and optional unit-price cap. An approved alternative is used
-only if the preferred product is unavailable. With two or more approved
+preferred product and optional unit-price cap. Selection order is exact preferred
+product, suitable explicitly approved alternative, then the nearest suitable
+automatic selection from visible evidence. Unavailability evidence is required
+only for saved preferred products/SKUs and saved alternatives. A generic request
+does not require an imaginary exact product to be unavailable. With two or more approved
 alternatives and `TYPESAFE_API_KEY` set, Jev ranks them; uncertain decisions
-leave the item unresolved.
+retain the saved approved alternatives in their original order.
+
+Automatic selections match product type semantically, not by identical names.
+The agent must judge all explicit attributes (including brand, flavor, fat/dietary
+requirements and package) against visible evidence and record its reason and
+quoted product attributes. Unspecified brand, flavor and package are flexible;
+no mainstream-brand requirement applies. Saved brand requirements are mandatory.
+An explicit package need uses the nearest sufficient size; absent one, no required
+package quantity is invented. An explicit unit-price cap always applies; without
+one, the selection must cost no more than 115% of the cheapest eligible observed
+comparison (nearest sufficient size when specified). Missing or contradictory
+evidence leaves the item unresolved. Code validates evidence structure/quotes,
+saved brand, numeric package needs and prices; semantic interpretation is the agent's judgment.
+
+Count all validated qualifying existing cart products and add only the deficit.
+Quantities are purchasable units: `Greek yogurt` quantity 10 can be satisfied by
+10 Nada Greek Yogurt Assorted Pack3X160G packs (30 cups). Never convert that target
+to 30 cart units. Results identify the selected product, observed package and price
+per purchasable unit. Recorded evidence is checked again against the final cart;
+only explicit `confirm-purchase` can promote a validated automatic selection.
+
+Each item gets at most three distinct recovery actions. Exhausting that budget
+leaves the item unresolved and allows other items to continue. Login/fulfillment
+failures, CAPTCHA, unsafe-action guards, missing/ambiguous product-plus controls,
+checkout failures, and the overall step budget stop the run; cart work is never
+automatically retried.
 
 ## Model configuration
 
@@ -78,10 +106,184 @@ and selects the earliest available slot. It reports the full cart, prices,
 unresolved items, slot, and attempt ID, then stops for manual checkout. After
 *actually placing* the order yourself, record it with
 `uv run python shopping.py confirm-purchase ATTEMPT_ID`. No purchase is inferred
-from reaching the slot page.
+from reaching the slot page. Learning is scoped to that attempt and applied only
+by explicit `confirm-purchase`; repeated confirmation is idempotent and does not
+duplicate purchase history or learning. An unresolved item prevents a prepared
+claim even if the producer reports success. Every shopping result requires
+manual checkout approval; the assistant never pays or places an order.
 The browser remains available for review until you press Enter in the terminal,
 then closes; its profile and the retailer's cart persist.
 
 Local checks (no retailer interaction): `uv run --no-sync python -m unittest -q`.
 Browser restart regression (temporary profile, localhost only):
 `TEST_BROWSER_SESSION=1 uv run --no-sync python -m unittest -q test_browser_session`.
+
+## Linux server deployment (Docker Compose)
+
+The image uses Python 3.13 on Debian Bookworm slim, frozen production dependencies
+from `uv.lock`, and Debian Chromium with Arabic-capable Noto fonts. It runs as
+UID/GID `1000:1000`. Browser Use detects `/usr/bin/chromium`; the image build
+checks detection without starting a browser. Python is pinned to its minor version;
+Debian packages and base-image tags can receive updates.
+
+One `bot` service runs `telegram_bot.py` using outbound Telegram polling; no
+inbound ports are published. Keep `pyproject.toml` and `uv.lock` together, including
+the `python-telegram-bot` dependency. Only runtime scripts and dependency metadata
+enter the build context: secrets, local virtualenvs, profiles, databases, tests,
+and navigation references are excluded.
+
+The bot and one-off readiness containers share the stable hostname
+`shopping-browser`. Chromium's persistent-profile locks include the hostname;
+changing it between containers can prevent startup after a stale lock remains.
+Keep this hostname for all containers using the profile, and serialize them.
+
+### Prepare the server
+
+From the project directory on Linux, with Docker Engine and Compose installed:
+
+```sh
+cp .env.server.example .env.server
+chmod 600 .env.server
+# Edit .env.server locally: set OPENAI_API_KEY, TELEGRAM_BOT_TOKEN,
+# and TELEGRAM_ALLOWED_USER_ID (your numeric Telegram user ID).
+sudo install -d -o 1000 -g 1000 -m 700 server-data \
+  server-data/browser-profile server-data/data
+docker compose config --quiet
+docker compose build --pull bot
+```
+
+Never copy `.env.local` into the image or transfer it as part of session setup.
+`.env.server` supplies credentials at runtime; keep it private and out of Git.
+The bind mounts must exist and be writable by UID 1000 before starting Compose.
+The database persists at `server-data/data/shopping.db`; a fresh directory starts
+with an empty list. Manage that list with the CLI below.
+
+### Transfer the login snapshot from Mac
+
+On the Mac, close other setup/shop browsers, then run:
+
+```sh
+uv run python shopping.py setup
+```
+
+Complete login/OTP and select the delivery address or pickup branch. Press Enter
+so setup saves `.browser-profile/storage-state.json` and closes the browser.
+Transfer **only this snapshot**, not the Mac Chromium profile, cache, or lock files.
+On the server, stop the bot and any one-off CLI containers before importing:
+
+```sh
+docker compose stop bot
+```
+
+The initial Linux profile directory must be fresh, as created above. From the Mac,
+upload to a temporary file in the server user's home (replace `USER@HOST`):
+
+```sh
+scp .browser-profile/storage-state.json USER@HOST:storage-state.upload.json
+```
+
+On the server, from the project directory, install privately and replace atomically
+on the same filesystem:
+
+```sh
+sudo install -o 1000 -g 1000 -m 600 "$HOME/storage-state.upload.json" \
+  server-data/browser-profile/storage-state.json.new
+sudo mv -f server-data/browser-profile/storage-state.json.new \
+  server-data/browser-profile/storage-state.json
+rm "$HOME/storage-state.upload.json"
+```
+
+Repeat this stopped-bot procedure when refreshing an expired login. With an existing
+Linux profile, snapshot values take precedence over matching stale profile cookies
+and storage; unrelated profile entries may remain. To discard all old Linux state,
+move the stopped profile directory aside and create a fresh UID-1000, mode-700
+directory before importing. Never overwrite the active snapshot while a browser is
+running: its shutdown save could replace the import. Each normal run updates the
+same snapshot. Snapshot transfer does not guarantee a portable login;
+the retailer may expire or reject it, requiring another Mac setup and import.
+
+### Readiness, start, and maintenance
+
+With the bot stopped, verify the imported session explicitly:
+
+```sh
+docker compose run --rm --no-deps bot python shopping.py readiness
+docker compose up -d bot
+docker compose logs --tail=100 -f bot
+```
+
+`readiness` launches headless Chromium and checks login/fulfillment without changing
+the cart. It prints JSON and exits 0 when ready, 1 on failure. It needs model
+credentials and makes live retailer/model requests; it is a deployment check,
+not a local packaging test. Add `--location "ADDRESS OR BRANCH"` to verify a specific
+location. Do not use `shop` as a readiness check or automatically retry cart work.
+
+Telegram `/add <multiword name> <positive quantity>` sets a list item's target
+quantity; `/clear` (no arguments) empties the saved list, product preferences, and
+approved alternatives while preserving purchase history, observed prices, and the
+live cart. `/list` reads the list, and `/help` shows usage. `/shop [location]`
+explicitly starts a cart-changing attempt. A completed attempt is not a purchase: use
+`confirm-purchase ATTEMPT_ID` only after explicitly confirming that you placed the
+order. Failed or interrupted attempts need review before another request; bot
+restart does not authorize retrying a shopping attempt. Pending Telegram messages
+are dropped on startup, so commands sent while the bot is offline must be resent.
+List changes (`/add` and `/clear`) are blocked during `/shop`. The bot's nonretry lock
+rejects concurrent work rather than queuing another attempt. Manual CLI containers
+must also be serialized: stop the bot and finish other CLI/browser processes before
+using the same database/profile.
+
+Telegram reports automatic substitutions as requested item → chosen product,
+including the observed package and unit price. Unresolved entries show requested
+item names with canned explanations only; unknown reason codes require manual
+review. Raw reason/model text is never sent. Malformed outcome fields use the
+sanitized `result_format` error reply and private diagnostic reference. Exact and
+approved selections retain the cart display. Every result states:
+“Manual approval required for checkout.”
+
+Shopping errors send Telegram a safe stage/type, child exit code, and diagnostic
+reference ID. Exception messages and traceback details stay local.
+Incomplete runs without a verified summary are logged too; Telegram receives only
+a canned reason (unknown for older results) and diagnostic reference, never raw diagnostics.
+Saved partial attempts with recovered browser/model failure diagnostics also log
+privately and append only a diagnostic reference to the validated shopping reply.
+The private logger redacts secrets, URLs, and email addresses before saving.
+The cart may already have changed: review it manually before another request. The bot never
+automatically reruns failed, incomplete, or interrupted cart work, even with a saved attempt.
+Private structured diagnostics live beside `SHOPPING_DB`: `/data/shopping-diagnostics.jsonl`
+in the container (`server-data/data/shopping-diagnostics.jsonl` on the host).
+Each record includes the reference ID, exit code, result status/existence,
+stage/type, allowlisted error code (unknown if absent or unsupported), redacted
+bounded message and basename-only traceback frames, and
+attempt ID when available; full shopping summaries and subprocess output are omitted.
+Files have owner-only mode `600`, rotate at 128 KiB, and retain two backups
+(`.1` and `.2`). Correlate Telegram's reference with these local records; a log
+write failure still returns a sanitized reply and releases the shopping lock.
+
+```sh
+docker compose stop bot
+docker compose run --rm --no-deps bot python shopping.py --db /data/shopping.db list
+docker compose run --rm --no-deps bot python shopping.py --db /data/shopping.db add "milk 1 L" 2
+docker compose run --rm --no-deps bot python shopping.py --db /data/shopping.db confirm-purchase ATTEMPT_ID
+docker compose up -d bot
+```
+
+Manual CLI commands explicitly pass `--db`: the bot uses `SHOPPING_DB`, while
+the CLI's default database is relative to its working directory.
+
+Compose enables an init process, a 3 GiB memory limit, two CPUs, 512 MiB shared
+memory, and logs bounded to three 10 MiB files. Shutdown allows 45 seconds;
+the bot waits up to 30 seconds for a terminated shopping subprocess before
+force-killing it. SIGTERM cancels the workflow and saves the browser session during
+cleanup. Keep total cleanup below Compose's deadline. Forced shutdown
+can interrupt snapshot saving, so review interrupted attempts before resuming.
+Back up the database and private profile with the bot and CLI processes stopped.
+Run the isolated packaging check without any external network or saved session:
+
+```sh
+docker run --rm --init --network none --memory 3g --cpus 2 \
+  --mount "type=bind,source=$PWD/docker_smoke_test.py,target=/tmp/docker_smoke_test.py,readonly" \
+  --entrypoint python agent-shopping-bot /tmp/docker_smoke_test.py
+```
+
+This checks headless launch and synthetic cookie/storage restoration into a fresh
+profile using localhost only. It does not verify Tamimi authentication.

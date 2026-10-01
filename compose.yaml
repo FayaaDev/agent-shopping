@@ -1,0 +1,32 @@
+services:
+  bot:
+    build: .
+    hostname: shopping-browser
+    env_file:
+      - path: .env.server
+        required: false
+    environment:
+      BROWSER_USE_HEADLESS: "true"
+      SHOPPING_DB: /data/shopping.db
+    volumes:
+      - type: bind
+        source: ./server-data/browser-profile
+        target: /app/.browser-profile
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./server-data/data
+        target: /data
+        bind:
+          create_host_path: false
+    init: true
+    restart: unless-stopped
+    mem_limit: 3g
+    cpus: 2
+    shm_size: 512m
+    stop_grace_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

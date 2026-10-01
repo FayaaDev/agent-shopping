@@ -1,0 +1,7 @@
+# Only runtime source and frozen dependency metadata enter the build context.
+**
+!Dockerfile
+!pyproject.toml
+!uv.lock
+!shopping.py
+!telegram_bot.py

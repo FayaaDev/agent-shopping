@@ -2,4 +2,4 @@
 name = "grocery-cart-agent"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["browser-use>=0.13,<0.14"]
+dependencies = ["browser-use>=0.13,<0.14", "python-telegram-bot>=22,<23", "python-dotenv>=1,<2"]

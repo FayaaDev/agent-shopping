@@ -1,5 +1,7 @@
 .opencode/ralph-loop.local.md
 .env.local
+.env.server
+server-data/
 .browser-profile/
 .venv/
 __pycache__/
