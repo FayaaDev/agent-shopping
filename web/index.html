@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#164d3b">
+  <title>Shopping — Your grocery list</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <!-- THESIS: A private, English, list-first tool: edit groceries, prepare a cart, review before manual checkout. No dashboard or hero.
+  OWN-WORLD: Cool light canvas, forest-green actions, system UI type, compact ruled rows and generous touch controls for phone use.
+  STORY: Set target units and preferences; prepare once; inspect honest results; confirm only after completing checkout yourself.
+  FIRST VIEWPORT: Shopping wordmark, Your grocery list, count, inline add form, editable rows. Mobile preparation stays at the bottom; desktop review sits right of the list within 1000px.
+  FORM: User-confirmed list-first operate mode. Concept script returned no output; no seed available. No invented reference.
+  FINISH: Review behavior, accessibility and responsive rules; report verification and remaining limitations within the five-file scope. -->
+  <header class="topbar"><a class="wordmark" href="/">Shopping<span class="wordmark-dot" aria-hidden="true"></span></a><button id="logout" class="quiet" hidden>Sign out</button></header>
+  <main>
+    <div class="connection" id="connection" role="status" aria-live="polite"><span id="connection-text">Loading your shopping list…</span><button id="retry" class="secondary" hidden>Retry connection</button></div>
+    <section id="login" class="login" aria-labelledby="login-title" hidden>
+      <h1 id="login-title">Your list, ready when you are.</h1>
+      <p class="muted">Sign in to your private shopping space.</p>
+      <form id="login-form">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024">
+        <button class="primary" type="submit">Sign in</button>
+      </form>
+      <p id="login-message" role="status" aria-live="polite"></p>
+    </section>
+    <div id="workspace" hidden>
+      <div id="feedback" role="status" aria-live="polite"></div>
+      <div class="layout">
+        <section class="list-section" aria-labelledby="list-title">
+          <div class="section-heading"><div><h1 id="list-title">Your grocery list</h1><p id="count" class="muted">Loading items…</p></div><button id="clear" class="quiet danger" data-mutation>Clear list</button></div>
+          <form id="add-form" class="add-form">
+            <div><label for="item-name">Grocery item</label><input id="item-name" name="name" placeholder="e.g. Greek yogurt" maxlength="200" required data-mutation></div>
+            <div><label for="item-quantity">Qty</label><input id="item-quantity" name="quantity" type="number" min="1" max="999" step="1" value="1" required data-mutation></div>
+            <button class="primary" type="submit" data-mutation>Add</button>
+          </form>
+          <p class="hint">Quantities are packs or units you buy. Adding an existing item sets its target quantity.</p>
+          <div id="empty" class="empty" hidden><h2>What do you need?</h2><p>Add your first grocery above. Set how many units you want, then prepare your Tamimi cart.</p></div>
+          <ul id="items" class="items" aria-label="Grocery items"></ul>
+        </section>
+        <aside class="review" aria-labelledby="review-title"><h2 id="review-title">Cart review</h2><div id="run-review" aria-live="polite"></div></aside>
+      </div>
+      <form id="prepare-form" class="prepare">
+        <div class="location"><label for="location">Delivery location <span class="muted">(optional)</span></label><input id="location" name="location" maxlength="500" placeholder="Use saved location" data-mutation></div>
+        <div class="prepare-action"><button id="prepare" class="primary" type="submit" data-mutation>Prepare cart</button><p id="prepare-note" class="hint">Keeps existing cart items. You complete checkout.</p></div>
+      </form>
+    </div>
+    <noscript><p>JavaScript is required to securely load and edit your shopping list.</p></noscript>
+  </main>
+</body>
+</html>

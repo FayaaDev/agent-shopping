@@ -23,7 +23,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
     SHOPPING_DB=/data/shopping.db
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
-COPY --chown=shopping:shopping shopping.py telegram_bot.py run_logging.py ./
+COPY --chown=shopping:shopping shopping.py telegram_bot.py run_logging.py web_app.py ./
+COPY --chown=shopping:shopping web/ ./web/
 USER shopping
 RUN python -c "from browser_use.browser.watchdogs.local_browser_watchdog import LocalBrowserWatchdog; assert LocalBrowserWatchdog._find_installed_browser_path() == '/usr/bin/chromium'"
 CMD ["python", "telegram_bot.py"]

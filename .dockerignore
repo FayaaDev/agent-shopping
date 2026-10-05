@@ -6,3 +6,6 @@
 !shopping.py
 !telegram_bot.py
 !run_logging.py
+!web_app.py
+!web/
+!web/**

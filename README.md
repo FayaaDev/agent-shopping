@@ -4,6 +4,9 @@ Tamimi cart preparation using one persistent Browser Use profile. The shopping
 list, preferred products/SKUs, approved alternatives, price caps, observed
 prices, and purchase confirmations live in `shopping.db` (ignored by Git).
 
+**Mobile web app:** manage the list with quantity buttons, prepare a cart, and
+review results in your phone browser. See [web setup and deployment](docs/web-app.md).
+
 ```sh
 uv run python shopping.py add "milk 1 L" 2
 uv run python shopping.py list
@@ -49,6 +52,10 @@ Quantities are purchasable units: `Greek yogurt` quantity 10 can be satisfied by
 to 30 cart units. Results identify the selected product, observed package and price
 per purchasable unit. Recorded evidence is checked again against the final cart;
 only explicit `confirm-purchase` can promote a validated automatic selection.
+Cart verification uses observed SKUs/product links when available, rejecting
+conflicting IDs. Otherwise it matches the full product name, tolerating whitespace,
+hyphens and the recorded brand prefix. Different flavors/packages and ambiguous
+candidate matches stay unresolved; prices and quantities are checked separately.
 
 Each item gets at most three distinct recovery actions. Exhausting that budget
 leaves the item unresolved and allows other items to continue. Login/fulfillment
@@ -144,6 +151,10 @@ changing it between containers can prevent startup after a stale lock remains.
 Keep this hostname for all containers using the profile, and serialize them.
 
 ### Prepare the server
+
+For iPhone voice commands without Telegram or a web UI, see
+[iPhone voice shopping over SSH](docs/iphone-shortcut.md): dictation, confirmation,
+background shopping, and status retrieval through a restricted SSH key.
 
 From the project directory on Linux, with Docker Engine and Compose installed:
 

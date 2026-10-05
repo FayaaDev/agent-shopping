@@ -12,7 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
-from shopping import ItemRecovery, PRODUCT_PLUS_SELECTOR, SITE, assess, blocked_action, blocked_setup_action, check_readiness, click_product_plus, confirm_purchase, create_browser, error_result, main, open_db, rank_alternatives, read_items, readiness, selection_reason, setup, shop, shopping_task
+from shopping import ItemRecovery, PRODUCT_PLUS_SELECTOR, SITE, assess, blocked_action, blocked_setup_action, cart_rows_for_product, check_readiness, click_product_plus, confirm_purchase, create_browser, error_result, main, open_db, rank_alternatives, read_items, readiness, selection_reason, setup, shop, shopping_task
 
 
 def substitution():
@@ -43,6 +43,20 @@ def generic_yogurt():
     outcome = {"item_name": item["name"], "selection_mode": "automatic_substitution", "product": product,
                "requested_type": "Greek yogurt", "required_package_quantity": None,
                "preferred_brand_available": None, "candidates": [product], "comparison": product}
+    return item, outcome
+
+
+def branded_yogurt():
+    item, outcome = generic_yogurt()
+    product = {**outcome["product"], "name": "Greek Yogurt Plain-150G",
+               "sku": "observed-150", "product_url": SITE + "product/greek-yogurt-150",
+               "product_type": "plain Greek yogurt", "brand": "Al Safi Danone",
+               "package_size": "150G", "package_quantity": 150, "package_unit": "g",
+               "mainstream_brand": False,
+               "match_evidence": ["Greek Yogurt", "Plain", "Al Safi Danone", "150G"]}
+    outcome.update(product=copy.deepcopy(product), candidates=[copy.deepcopy(product)],
+                   comparison=copy.deepcopy(product), unresolved_reason=None, requested_brand=None,
+                   package_unit="", exact_unavailable=False, approved_unavailable=False)
     return item, outcome
 
 
@@ -78,6 +92,83 @@ class ShoppingTest(unittest.TestCase):
             item, outcome = generic_yogurt()
             item.update(change)
             self.assertEqual(selection_reason(item, outcome), reason)
+
+    def test_branded_yogurt_cart_alias_assessment_keeps_price_and_quantity_strict(self):
+        item, outcome = branded_yogurt()
+        self.assertIsNone(selection_reason(item, outcome))
+        for name in ("Greek Yogurt Plain-150G", "Al Safi Danone Greek Yogurt Plain - 150G",
+                     "  Al Safi Danone  Greek Yogurt Plain -  150G  "):
+            with self.subTest(name=name):
+                summary = {"cart": [{"name": name, "quantity": 10, "unit_price": 9.95}],
+                           "item_outcomes": [copy.deepcopy(outcome)], "unresolved": []}
+                self.assertEqual(cart_rows_for_product(summary["cart"], outcome["product"]), summary["cart"])
+                self.assertEqual(assess([item], summary), [])
+                for field, value, reason in (("unit_price", 9.94, "insufficient_evidence"),
+                                             ("unit_price", 10, "insufficient_evidence"),
+                                             ("quantity", 9, "quantity_unverified")):
+                    with self.subTest(field=field, value=value):
+                        changed = copy.deepcopy(summary)
+                        changed["cart"][0][field] = value
+                        self.assertEqual(cart_rows_for_product(changed["cart"], outcome["product"]), changed["cart"])
+                        self.assertEqual(assess([item], changed), [item["name"]])
+                        self.assertEqual(changed["item_outcomes"][0]["unresolved_reason"], reason)
+
+    def test_cart_rows_for_product_rejects_other_brand_flavor_package_and_partial_names(self):
+        _, outcome = branded_yogurt()
+        for name in ("Nada Greek Yogurt Plain - 150G", "Al Safi Greek Yogurt Plain - 150G",
+                      "Al Safi Danone Greek Yogurt Strawberry - 150G",
+                      "Al Safi Danone Greek Yogurt Plain - 160G",
+                      "Al Safi Danone Greek Yogurt Plain - 1-50G", "Greek Yogurt",
+                     "Al Safi Danone Greek Yogurt Plain - 150G Multipack"):
+            with self.subTest(name=name):
+                row = {"name": name, "quantity": 10, "unit_price": 9.95}
+                self.assertEqual(cart_rows_for_product([row], outcome["product"], outcome["candidates"]), [])
+
+    def test_cart_rows_for_product_stable_ids_override_label_but_never_conflicts(self):
+        _, outcome = branded_yogurt()
+        product = outcome["product"]
+        for field in ("sku", "product_url"):
+            with self.subTest(field=field):
+                row = {"name": "Changed observed label", field: product[field], "quantity": 10, "unit_price": 9.95}
+                self.assertEqual(cart_rows_for_product([row], product, outcome["candidates"]), [row])
+        for identifiers in ({"sku": "different"}, {"product_url": SITE + "product/different"},
+                            {"sku": product["sku"], "product_url": SITE + "product/different"},
+                            {"sku": "different", "product_url": product["product_url"]}):
+            with self.subTest(identifiers=identifiers):
+                row = {"name": "Al Safi Danone Greek Yogurt Plain - 150G", "quantity": 10,
+                       "unit_price": 9.95, **identifiers}
+                self.assertEqual(cart_rows_for_product([row], product, outcome["candidates"]), [])
+
+    def test_cart_rows_for_product_ambiguous_alias_requires_cart_sku(self):
+        _, outcome = branded_yogurt()
+        product = outcome["product"]
+        other = {**product, "name": "Al Safi Danone Greek Yogurt Plain - 150G", "sku": "other-150",
+                 "product_url": SITE + "product/other-greek-yogurt-150"}
+        candidates = [product, other]
+        row = {"name": other["name"], "quantity": 10, "unit_price": 9.95}
+        for candidate in candidates:
+            self.assertEqual(cart_rows_for_product([row], candidate, candidates), [])
+        for candidate, rejected in ((product, other), (other, product)):
+            with self.subTest(sku=candidate["sku"]):
+                identified = {**row, "sku": candidate["sku"]}
+                self.assertEqual(cart_rows_for_product([identified], candidate, candidates), [identified])
+                self.assertEqual(cart_rows_for_product([identified], rejected, candidates), [])
+
+    def test_confirm_purchase_branded_yogurt_alias_promotes_only_matching_price(self):
+        for price in (9.95, 9.94):
+            with self.subTest(price=price):
+                item, outcome = branded_yogurt()
+                db = open_db(":memory:")
+                self.addCleanup(db.close)
+                summary = {"requested_items": [item], "item_outcomes": [outcome], "unresolved": [],
+                           "cart": [{"name": "Al Safi Danone Greek Yogurt Plain - 150G",
+                                     "quantity": 10, "unit_price": price}]}
+                with db:
+                    db.execute("INSERT INTO items(name, quantity) VALUES (?, ?)", (item["name"], item["quantity"]))
+                    attempt = db.execute("INSERT INTO attempts(summary) VALUES (?)", (json.dumps(summary),)).lastrowid
+                confirm_purchase(db, attempt)
+                self.assertEqual(read_items(db)[0]["alternatives"],
+                                 [{"name": outcome["product"]["name"], "sku": "observed-150"}] if price == 9.95 else [])
 
     def test_generic_yogurt_quotes_values_only(self):
         item, outcome = generic_yogurt()
@@ -298,6 +389,7 @@ class ShoppingTest(unittest.TestCase):
                         db.execute("INSERT INTO items(name, quantity) VALUES (?, ?)", (requested["name"], requested["quantity"]))
                 registered = {}
                 tools = SimpleNamespace(
+                    exclude_action=MagicMock(),
                     action=lambda description: lambda fn: registered.setdefault(fn.__name__, fn),
                     registry=SimpleNamespace(create_action_model=lambda **kwargs: Action))
                 agent = SimpleNamespace(history=SimpleNamespace(history=[]), stop=MagicMock())
@@ -583,11 +675,14 @@ class ShoppingTest(unittest.TestCase):
     def test_real_tools_register_and_dispatch_nested_selection_evidence(self):
         from browser_use import ActionResult, Tools
 
-        for scenario in ("valid", "rejected", "url_mismatch", "missing_url", "http_url", "foreign_url",
+        for scenario in ("valid", "cart_alias", "rejected", "url_mismatch", "missing_url", "http_url", "foreign_url",
                          "credential_url", "recovery_exhausted"):
             with self.subTest(scenario=scenario), tempfile.TemporaryDirectory() as directory:
                 item, outcome = substitution()
                 product_url = SITE + "product/milk"
+                if scenario == "cart_alias":
+                    item, outcome = branded_yogurt()
+                    product_url = outcome["product"]["product_url"]
                 outcome["product"]["product_url"] = product_url
                 if scenario == "rejected":
                     outcome["product"]["unit_price"] = 11.51
@@ -615,6 +710,12 @@ class ShoppingTest(unittest.TestCase):
                     async def run(max_steps):
                         tools = kwargs["tools"]
                         self.assertIsInstance(tools, Tools)
+                        actions = tools.registry.create_action_model()
+                        action_fields = {name for definition in actions.model_json_schema()["$defs"].values()
+                                         for name in definition.get("properties", {})}
+                        self.assertNotIn("evaluate", action_fields)
+                        self.assertIn("find_elements", action_fields)
+                        self.assertTrue(blocked_action({"evaluate": {"code": "document.title"}}, product_url, {}))
                         model = tools.registry.create_action_model(include_actions=["add_product_plus"])
                         schema.update(model.model_json_schema())  # Resolve the local ItemOutcome/Product definitions.
                         action = model.model_validate({"add_product_plus": {
@@ -656,19 +757,30 @@ class ShoppingTest(unittest.TestCase):
                                 outcome=outcome, observed_quantity=0, observed_item_quantity=0, browser_session=None)
                             self.assertIsInstance(returned, ActionResult)
                             self.assertIsNone(returned.error, returned.error)
-                            if scenario == "valid":
+                            if scenario in {"valid", "cart_alias"}:
                                 self.assertIn("Clicked product + once", returned.extracted_content)
                                 returned = await tools.add_product_plus(
                                     outcome=outcome, observed_quantity=1, observed_item_quantity=1, browser_session=None)
                                 self.assertIsNone(returned.error, returned.error)
                                 self.assertIn("Clicked product + once", returned.extracted_content)
+                                if scenario == "cart_alias":
+                                    for quantity in range(2, 10):
+                                        returned = await tools.add_product_plus(
+                                            outcome=outcome, observed_quantity=quantity,
+                                            observed_item_quantity=quantity, browser_session=None)
+                                        self.assertIsNone(returned.error, returned.error)
+                                        self.assertIn("Clicked product + once", returned.extracted_content)
                             else:
                                 self.assertIn("No click performed", returned.extracted_content)
                                 self.assertIn("price_cap" if scenario == "rejected" else "current product page",
                                               returned.extracted_content)
                         summary = kwargs["output_model_schema"](
-                            cart=[], item_outcomes=[], slot=None, stage="cart", unresolved=[])
-                        return SimpleNamespace(structured_output=summary, is_successful=lambda: False,
+                            cart=([{"name": "Al Safi Danone Greek Yogurt Plain - 150G",
+                                    "quantity": 10, "unit_price": 9.95}] if scenario == "cart_alias" else []),
+                            item_outcomes=[outcome] if scenario == "cart_alias" else [],
+                            slot="Earliest available slot" if scenario == "cart_alias" else None,
+                            stage="slot_selected" if scenario == "cart_alias" else "cart", unresolved=[])
+                        return SimpleNamespace(structured_output=summary, is_successful=lambda: scenario == "cart_alias",
                                                is_done=lambda: True, errors=lambda: [], history=[])
                     agent.run = run
                     return agent
@@ -679,12 +791,18 @@ class ShoppingTest(unittest.TestCase):
                         patch("shopping.start_browser", new_callable=AsyncMock) as start, \
                         patch("shopping.check_readiness", new_callable=AsyncMock, return_value={"success": True}), \
                         patch("sys.stdin.isatty", return_value=False), redirect_stdout(StringIO()):
-                    self.assertFalse(asyncio.run(shop(SITE, [item], db, result_file=path)))
+                    self.assertEqual(asyncio.run(shop(SITE, [item], db, result_file=path)), scenario == "cart_alias")
                 start.assert_awaited_once_with(browser, SITE)
-                self.assertEqual(control.click.await_count, 2 if scenario == "valid" else 0)
-                if scenario != "valid":
+                self.assertEqual(control.click.await_count, 10 if scenario == "cart_alias" else 2 if scenario == "valid" else 0)
+                if scenario not in {"valid", "cart_alias"}:
                     page.get_elements_by_css_selector.assert_not_awaited()
                 agent.stop.assert_not_called()
+                if scenario == "cart_alias":
+                    saved = json.loads(path.read_text())
+                    self.assertTrue(saved["success"])
+                    self.assertEqual(saved["summary"]["unresolved"], [])
+                    self.assertEqual(saved["summary"]["missing_or_over_cap"], [])
+                    self.assertIsNone(saved["summary"]["item_outcomes"][0]["unresolved_reason"])
                 if scenario == "recovery_exhausted":
                     saved = json.loads(path.read_text())["summary"]
                     self.assertEqual(saved["item_outcomes"][0]["unresolved_reason"], "recovery_exhausted")
@@ -787,7 +905,7 @@ class ShoppingTest(unittest.TestCase):
                 module.Browser.assert_called_once_with(user_data_dir=profile, headless=False, keep_alive=True,
                                                       storage_state=profile / "storage-state.json")
                 self.assertEqual([call.args[0] for call in tools.exclude_action.call_args_list],
-                                 ["navigate", "input", "evaluate"])
+                                 ["navigate", "input", "evaluate"] + (["evaluate"] if expected_agents == 2 else []))
                 browser.kill.assert_awaited_once()
 
     def test_shop_requires_openai_key_before_browser_start(self):
@@ -1028,7 +1146,8 @@ class ShoppingTest(unittest.TestCase):
                     state.stopped = True
                 agent.stop = MagicMock(side_effect=stop)
                 registered = {}
-                tools = SimpleNamespace(action=lambda description: lambda fn: registered.setdefault(fn.__name__, fn))
+                tools = SimpleNamespace(exclude_action=MagicMock(),
+                                        action=lambda description: lambda fn: registered.setdefault(fn.__name__, fn))
                 action_executed = []
                 async def run(max_steps):
                     self.assertEqual(max_steps, 30)

@@ -304,6 +304,8 @@ Product-image + SVG CSS selector used by add_product_plus:
 {PRODUCT_PLUS_SELECTOR}
 Use ONLY the add_product_plus action to add a unit; it queries the current DOM
 with this selector and clicks the plus SVG only with exactly one match.
+Use find_elements for read-only selector inspection. JavaScript evaluate is unavailable;
+never request it, including for inspection. Use visible page data or extract for product details.
 Do not use generic click, coordinates, or evaluate to add products. Do NOT
 click the header CHECKOUT control to add an item. If the + control cannot be
 identified uniquely (zero or multiple matches), stop and report it instead of guessing. After each + click, verify
@@ -373,7 +375,10 @@ never applies to account, fulfillment, checkout or slot errors.
 Never add extra quantities to meet an order minimum; report the minimum instead.
 
 Reopen the cart and verify all names, quantities and prices. Include unrelated
-pre-existing items in the final cart. If possible, enter checkout ONLY to book
+pre-existing items in the final cart. Include cart-row sku and product_url only when
+observed on that cart row; never infer or copy them from the selected product.
+Keep the actual cart label even when it differs from the product-page name.
+If possible, enter checkout ONLY to book
 the earliest available slot, even with unresolved items. STOP IMMEDIATELY after
 selecting the slot (stage: slot_selected), before any Continue, Proceed to Payment, payment details,
 confirmation, or order placement. If login, CAPTCHA, location or slot selection
@@ -388,6 +393,46 @@ automatic_substitution), observed product and evidence, or unresolved_reason
 already satisfied by the cart. Do not claim a purchase occurred."""
 
 
+def cart_rows_for_product(cart, product, candidates=()):
+    """Match observed IDs or full names; reject ambiguous candidate aliases."""
+    def name_key(value):
+        return tuple(re.findall(r"\d+(?:\.\d+)?|[^\W\d_]+|[^\w\s\-\u2010-\u2015]",
+                                (value or "").casefold()))
+
+    def matches(row, candidate):
+        identified = False
+        for field in ("sku", "product_url"):
+            left, right = row.get(field), candidate.get(field)
+            if not left or not right:
+                continue
+            if field == "product_url":
+                try:
+                    left, right = urlsplit(left), urlsplit(right)
+                except ValueError:
+                    return False
+                if any(url.scheme != "https" or url.netloc != "shop.tamimimarkets.com" or
+                       not url.path.startswith("/product/") for url in (left, right)):
+                    return False
+                left, right = (left.path.rstrip("/"), left.query), (right.path.rstrip("/"), right.query)
+            if left != right:
+                return False
+            identified = True
+        if identified:
+            return True
+        name, brand = name_key(candidate.get("name")), name_key(candidate.get("brand"))
+        if not name:
+            return False
+        core = name[len(brand):] if brand and name[:len(brand)] == brand else name
+        aliases = {name, core, brand + core} if core else {name}
+        return name_key(row.get("name")) in aliases
+
+    pool = []
+    for candidate in [product, *candidates]:
+        if candidate.get("name") and candidate not in pool:
+            pool.append(candidate)
+    return [row for row in cart if [candidate for candidate in pool if matches(row, candidate)] == [product]]
+
+
 def assess(items, summary):
     cart = summary.get("cart", [])
     missing = []
@@ -399,29 +444,31 @@ def assess(items, summary):
         outcome["item_name"] = item["name"]
         reason = selection_reason(item, outcome)
         product = outcome.get("product") or {}
+        candidates = outcome.get("candidates", [])
         allowed = set()
-        for row in cart:
-            evidence = next((candidate for candidate in [product, *outcome.get("candidates", [])]
-                             if candidate.get("name") and
-                             candidate["name"].casefold() == row["name"].casefold()), row)
-            # Cart rows expose names, not SKUs; retain known exact-name matching.
-            named_item = {**item, "sku": None, "alternatives": [{**alt, "sku": None} for alt in item["alternatives"]]}
+        for index, row in enumerate(cart):
+            evidence = next((candidate for candidate in [product, *candidates]
+                             if cart_rows_for_product([row], candidate, [product, *candidates])), row)
+            # Preserve name-based preference matching when no cart SKU is observed.
+            named_item = {**item, "sku": item.get("sku") if row.get("sku") else None,
+                          "alternatives": [{**alt, "sku": alt.get("sku") if row.get("sku") else None}
+                                           for alt in item["alternatives"]]}
             if any(selection_reason(named_item, {"item_name": item["name"], "selection_mode": mode,
                                           "product": evidence}) is None
                    for mode in ("exact", "approved_alternative")):
-                allowed.add(row["name"].casefold())
+                allowed.add(index)
         if reason is None:
-            allowed.add(product["name"].casefold())
-            for candidate in outcome.get("candidates", []):
+            for candidate in [product, *candidates]:
                 if selection_reason(item, {**outcome, "product": candidate}) is None:
-                    allowed.add(candidate["name"].casefold())
-        matches = [row for row in cart if row["name"].casefold() in allowed]
-        selected = [row for row in cart if row["name"].casefold() == product.get("name", "").casefold()]
+                    allowed.update(index for index, row in enumerate(cart)
+                                   if cart_rows_for_product([row], candidate, [product, *candidates]))
+        matches = [row for index, row in enumerate(cart) if index in allowed]
+        selected = cart_rows_for_product(cart, product, candidates)
         if reason is None and (not selected or any(row["unit_price"] != product["unit_price"] for row in selected)):
             reason = "insufficient_evidence"
-        for candidate in outcome.get("candidates", []):
-            if any(row["name"].casefold() == candidate["name"].casefold() and
-                   row["name"].casefold() in allowed and row["unit_price"] != candidate["unit_price"] for row in cart):
+        for candidate in candidates:
+            if any(row["unit_price"] != candidate["unit_price"]
+                   for row in cart_rows_for_product(matches, candidate, [product, *candidates])):
                 reason = reason or "insufficient_evidence"
         if sum(row["quantity"] for row in matches) < item["quantity"]:
             reason = reason or "quantity_unverified"
@@ -715,6 +762,8 @@ async def shop(site, items, db, location=None, result_file=None):
         name: str
         quantity: int = Field(gt=0)
         unit_price: float = Field(ge=0, allow_inf_nan=False)
+        sku: str | None = Field(default=None, description="SKU observed on this cart row; never inferred.")
+        product_url: str | None = Field(default=None, description="Product link observed on this cart row; never inferred.")
 
     class Product(BaseModel):
         name: str
@@ -863,6 +912,7 @@ async def shop(site, items, db, location=None, result_file=None):
 
         phase = run_phase("cart_tools")
         shopping_tools = Tools()
+        shopping_tools.exclude_action("evaluate")
 
         @shopping_tools.action("Begin a requested item before searching. Exhausted items cannot be retried in this run.")
         async def begin_item(item_name: str):
@@ -986,8 +1036,8 @@ async def shop(site, items, db, location=None, result_file=None):
                 outcome["unresolved_reason"] = recovery.unresolved[name]
             product = outcome.get("product") or {}
             expected = added_quantities.get(product.get("name", "").casefold())
-            if expected is not None and sum(row["quantity"] for row in data["cart"]
-                                            if row["name"].casefold() == product["name"].casefold()) < expected:
+            if expected is not None and sum(row["quantity"] for row in cart_rows_for_product(
+                    data["cart"], product, outcome.get("candidates", []))) < expected:
                 outcome["unresolved_reason"] = "quantity_unverified"
         for name, reason in recovery.unresolved.items():
             if not any(row["item_name"].casefold() == name.casefold() for row in data.get("item_outcomes", [])):

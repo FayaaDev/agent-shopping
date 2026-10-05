@@ -8,3 +8,8 @@ __pycache__/
 shopping.db
 shopping.db-*
 shopping-runs/
+*.web-run.json
+.web-run-*
+.uizze/review/
+.ssh
+voice-shortcut/
