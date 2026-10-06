@@ -9,7 +9,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 FROM python:3.13-slim-bookworm AS runtime
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends chromium fonts-noto-core fonts-noto-color-emoji ca-certificates \
+    && apt-get install -y --no-install-recommends chromium fonts-noto-core fonts-noto-color-emoji ca-certificates procps \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 1000 shopping \
     && useradd --uid 1000 --gid 1000 --create-home shopping \
@@ -23,8 +23,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
     SHOPPING_DB=/data/shopping.db
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
-COPY --chown=shopping:shopping shopping.py telegram_bot.py run_logging.py web_app.py ./
-COPY --chown=shopping:shopping web/ ./web/
+COPY --chown=shopping:shopping shopping.py telegram_bot.py telegram_voice.py run_logging.py voice_shortcut.py voice_bridge.py ./
 USER shopping
 RUN python -c "from browser_use.browser.watchdogs.local_browser_watchdog import LocalBrowserWatchdog; assert LocalBrowserWatchdog._find_installed_browser_path() == '/usr/bin/chromium'"
 CMD ["python", "telegram_bot.py"]

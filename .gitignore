@@ -13,3 +13,10 @@ shopping-runs/
 .uizze/review/
 .ssh
 voice-shortcut/
+voice-agent/node_modules/
+voice-agent/dist/
+voice-agent/.wrangler/
+voice-agent/.dev.vars
+voice-agent/.dev.new
+voice-agent/.local.*
+voice-agent/.env*

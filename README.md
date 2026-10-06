@@ -4,8 +4,10 @@ Tamimi cart preparation using one persistent Browser Use profile. The shopping
 list, preferred products/SKUs, approved alternatives, price caps, observed
 prices, and purchase confirmations live in `shopping.db` (ignored by Git).
 
-**Mobile web app:** manage the list with quantity buttons, prepare a cart, and
-review results in your phone browser. See [web setup and deployment](docs/web-app.md).
+**Telegram voice shopping:** send an Arabic/English voice message or text request,
+review the transcript and full merged list, then press **Run shop** to prepare the
+cart. See [Telegram voice setup](docs/telegram-voice.md). The optional
+[local voice page](docs/voice-agent.md) is retained but stays stopped while the bot owns the profile.
 
 ```sh
 uv run python shopping.py add "milk 1 L" 2
@@ -45,6 +47,12 @@ saved brand, numeric package needs and prices; semantic interpretation is the ag
 Evidence quotes use attribute values from name, brand or package size only, without
 labels, prices or SKUs. Selected product and comparison are unchanged candidate
 copies; equal-price comparisons use the first eligible candidate in observed order.
+The agent captures qualifying search results once, chooses from that evidence,
+then opens the selected product to validate and add. It revisits results only for
+missing/contradictory evidence, a failed selection, or saved preference checks.
+Readiness accepts an explicit selected branch/address in the fulfillment header;
+ambiguous or mismatched locations still require inspection. Both agents request a
+single JSON response per turn; malformed model responses remain rejected.
 
 Count all validated qualifying existing cart products and add only the deficit.
 Quantities are purchasable units: `Greek yogurt` quantity 10 can be satisfied by

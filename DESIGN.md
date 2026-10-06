@@ -1,6 +1,6 @@
 ---
 name: Shopping
-description: Current visual system for the private English grocery-list app.
+description: Current visual system for the private bilingual voice grocery-list app.
 colors:
   green: "#164d3b"
   green-hover: "#0c392a"
@@ -43,7 +43,7 @@ rounded:
 
 ## Overview
 
-Extracted from `web/index.html`, `web/style.css`, and `web/app.js`. Cool light surfaces, forest-green actions, system typography, and ruled grocery rows support private phone use. This records the implementation, not a proposed redesign.
+Implemented in `voice-agent/index.html`, `voice-agent/src/style.css`, and `voice-agent/src/client.ts`. The voice surface preserves the original cool light surfaces, forest-green actions, system typography, and ruled grocery rows. Arabic/mixed content uses automatic text direction.
 
 ## Colors
 
@@ -57,9 +57,9 @@ One system sans-serif stack throughout. Section titles use the title role; row n
 
 Centered container: `min(100% - 32px, 1000px)`. Header is at least 80px tall. Mobile stacks the list before cart review. At 760px, columns use a 1.7:1 ratio with a 40px gap and a divided review column.
 
-Add form uses a flexible item field, 62px quantity field, and action button with 8px gaps. Rows use 18px top and 10px bottom padding; names can wrap while quantity controls retain their width. Preferences expand inline.
+Voice controls precede a labeled, editable request field and conversation transcript. Merged grocery rows wrap names while retaining visible target quantities. Saved preferences, alternatives and explicit caps appear inline beneath each row; proposed changes follow the list.
 
-Preparation form is sticky at the viewport bottom, with an opaque canvas background and safe-area bottom padding on mobile. Desktop places location and the 320px action area side by side. Document scroll padding is 220px. Full-page screenshots can capture the sticky bar across otherwise scrollable content.
+Approval is sticky at the viewport bottom, with an opaque canvas background and safe-area bottom padding. It pairs Run shop with the preview's approval conditions and the stop-before-order notice. Desktop splits transcript/conversation from merged list/results; mobile stacks them.
 
 ## Elevation & Depth
 
@@ -73,9 +73,9 @@ Slightly rounded rectangular buttons and fields. Grocery rows remain unboxed. Th
 
 - **Controls:** Minimum 44px height; quantity buttons are 44px wide, preparation button at least 48px tall. Primary buttons use white on green; secondary buttons use green on white; quiet buttons are transparent. Hover changes background. Disabled buttons use .48 opacity.
 - **Focus and browser surfaces:** Visible 3px focus outline with 3px offset; themed selection, caret, and scrollbar. Native buttons, labeled inputs, and disclosure controls retain keyboard semantics. No authored animation; reduced-motion rules suppress motion.
-- **List:** Empty guidance, editable quantities from 1–999, inline product preferences and approved alternatives. Removal and clearing use native confirmation dialogs.
-- **Connection and authentication:** Initial loading, private sign-in, sign-in error, session expiry, and stale-connection retry messages. Stale, busy, and shopping states disable mutations. Feedback uses polite live regions.
-- **Cart review:** No-run guidance, preparing, complete, incomplete, and failed states. Results show delivery slot, recorded products, unit prices, selections, unresolved items, and run reference. Missing data is stated explicitly. Purchase confirmation is separate from preparation and uses a native confirmation dialog.
+- **List:** Empty guidance, exact preview changes, target quantities, inline product preferences and approved alternatives. Edits happen through the voice/text request and require a regenerated preview.
+- **Connection and authentication:** Automatic same-origin localhost session, loading, missing-provider guidance, microphone permission denial, clarification, session expiry and explicit connection recovery. Busy, stale and active-microphone states disable approval. Questions are displayed separately from technical error mapping.
+- **Cart review:** No-run, preparing, completed, incomplete, failed and interrupted states; sanitized textual results and run reference. Read result aloud has a pending state; muting cancels pending playback. Purchase confirmation remains a separate CLI action.
 
 ## Do's and Don'ts
 

@@ -42,13 +42,11 @@ Requirements:
 The gateway and Compose files must be maintained by an administrator. Do not
 make the project or SSH authorization files writable by unrelated users.
 
-Before switching interfaces, stop the bot and web service, and verify that no
+Before switching interfaces, stop the bot and any local voice service, and verify that no
 other setup, readiness, shopping, or browser process owns the shared profile:
 
 ```sh
 docker compose stop bot
-# If the web service was deployed:
-docker compose -f compose.yaml -f compose.web.yaml stop web
 docker ps --format '{{.Names}}  {{.Status}}'
 ```
 

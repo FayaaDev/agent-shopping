@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "shopping-voice-local",
+  "main": "src/server.ts",
+  "compatibility_date": "2026-10-06",
+  "compatibility_flags": ["nodejs_compat", "experimental"],
+  "durable_objects": {
+    "bindings": [{"name": "ShoppingAgent", "class_name": "ShoppingAgent"}]
+  },
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["ShoppingAgent"]}],
+  "assets": {"directory": "dist", "binding": "ASSETS", "run_worker_first": true},
+  "vars": {
+    "LOCAL_ORIGIN": "http://localhost:8787",
+    "VOICE_BRIDGE_URL": "http://127.0.0.1:8765",
+    "OPENAI_BASE_URL": "https://cli.fayaa92.sa/v1",
+    "OPENAI_MODEL": "gpt-4.1",
+    "ELEVENLABS_VOICE_ID": "JBFqnCBsd6RMkjVDRZzb"
+  },
+  "observability": {"enabled": true, "traces": {"enabled": false}}
+}

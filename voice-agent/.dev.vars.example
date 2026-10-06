@@ -1,0 +1,8 @@
+# Copy to .dev.vars; never commit the populated file.
+LOCAL_SESSION_SECRET=generate-at-least-32-random-characters
+VOICE_BRIDGE_TOKEN=use-the-same-random-token-as-the-python-bridge
+OPENAI_API_KEY=your-openai-compatible-provider-key
+OPENAI_BASE_URL=https://cli.fayaa92.sa/v1
+OPENAI_MODEL=your-server-model-name
+ELEVENLABS_API_KEY=your-elevenlabs-key
+ELEVENLABS_VOICE_ID=JBFqnCBsd6RMkjVDRZzb

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#164d3b" />
+    <title>Shopping · Voice</title>
+  </head>
+  <body>
+    <!-- THESIS: Operate a grocery list by voice, review before shopping; no marketing or dashboard cards.
+    OWN-WORLD: DESIGN.md cool canvas, forest-green controls, system type, flat surfaces and unboxed ruled grocery rows.
+    STORY: Speak Arabic or English, read spoken replies, edit the transcript, regenerate a merged preview, stop the microphone, then run exactly that preview.
+    FIRST VIEWPORT: Compact Shopping header, connection recovery, task heading and touch-sized microphone controls above a labeled transcript. Merged list and run result follow; approval stays at the bottom with its conditions visible.
+    FORM: Precisely approved mobile workflow; single column on phones, transcript and divided list/result columns at 760px. No concept seed required for this pinned flow.
+    FINISH: Verify states, keyboard access, responsive layout and build; preserve the established DESIGN.md. -->
+    <header class="topbar">
+      <a class="wordmark" href="/" aria-label="Shopping home"><span class="wordmark-dot" aria-hidden="true"></span>Shopping</a>
+      <span class="muted">Voice list</span>
+    </header>
+    <main>
+      <div class="connection" role="status" aria-live="polite">
+        <p id="connection">Loading your private session…</p>
+        <button id="retry" class="secondary" hidden>Reload state &amp; settings</button>
+      </div>
+      <p id="feedback" role="alert" hidden></p>
+      <div class="layout">
+        <section aria-labelledby="voice-heading">
+          <h1 id="voice-heading">Say what you need</h1>
+          <p class="intro muted">Speak Arabic or English. Review your list before preparing the Tamimi cart.</p>
+          <div class="voice-controls">
+            <button id="microphone" class="primary" disabled>
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/></svg>
+              <span id="microphone-label">Start microphone</span>
+            </button>
+            <button id="mute" class="secondary" aria-pressed="false" disabled>Mute spoken replies</button>
+          </div>
+          <p id="voice-status" class="hint" role="status">Microphone off. You can also type below.</p>
+          <p id="interim" class="interim" dir="auto" hidden></p>
+          <form id="draft-form">
+            <label for="draft">Your shopping request</label>
+            <textarea id="draft" rows="5" dir="auto" placeholder="For example: 2 packs of yogurt, up to 10 SAR each" aria-describedby="draft-help" disabled></textarea>
+            <p id="draft-help" class="hint">Edit names, quantities, price caps or product preferences. Every edit needs a new preview.</p>
+            <button id="preview-button" class="secondary" type="submit" disabled>Generate preview</button>
+          </form>
+          <section class="conversation" aria-labelledby="conversation-heading">
+            <h2 id="conversation-heading">Conversation</h2>
+            <p id="conversation-empty" class="muted">Your words and the assistant’s full replies will appear here, including when replies are muted.</p>
+            <ol id="transcripts" class="transcripts" aria-live="polite" aria-relevant="additions text"></ol>
+          </section>
+        </section>
+        <div class="review">
+          <section aria-labelledby="list-heading">
+            <div class="section-heading"><h2 id="list-heading">Shopping list</h2><span id="count" class="hint"></span></div>
+            <p id="preview-message" class="muted">Loading saved items…</p>
+            <ul id="items" class="items"></ul>
+            <section id="changes" class="changes" hidden>
+              <h3>Changes in this preview</h3>
+              <ul id="actions" class="actions"></ul>
+            </section>
+            <p id="expiry" class="hint"></p>
+          </section>
+          <section class="result" aria-labelledby="result-heading">
+            <h2 id="result-heading">Cart preparation</h2>
+            <p id="run-status" class="run-status" role="status">No run yet</p>
+            <p id="run-message" dir="auto" class="muted">Approve a fresh preview to prepare your cart. Checkout and purchase stay with you.</p>
+            <p id="run-reference" class="run-reference" hidden></p>
+             <button id="lookup" class="secondary" hidden>Check run status</button>
+             <button id="read-result" class="secondary" hidden>Read result aloud</button>
+          </section>
+        </div>
+      </div>
+      <div class="prepare">
+        <div><p id="approval-help">Generate a preview to review the exact list.</p><p class="hint">Prepares the cart only. Does not place an order.</p></div>
+        <button id="confirm" class="primary" disabled>Run shop · exact preview</button>
+      </div>
+    </main>
+    <script type="module" src="/src/client.ts"></script>
+  </body>
+</html>

@@ -902,6 +902,9 @@ class ShoppingTest(unittest.TestCase):
                 for call in module.Agent.call_args_list:
                     self.assertIs(call.kwargs["llm"], module.ChatOpenAI.return_value)
                     self.assertIs(call.kwargs["enable_signal_handler"], False)
+                    self.assertIn("exactly one JSON object", call.kwargs["extend_system_message"])
+                    self.assertIn("No prose", call.kwargs["extend_system_message"])
+                    self.assertIs(call.kwargs["directly_open_url"], False)
                 module.Browser.assert_called_once_with(user_data_dir=profile, headless=False, keep_alive=True,
                                                       storage_state=profile / "storage-state.json")
                 self.assertEqual([call.args[0] for call in tools.exclude_action.call_args_list],
@@ -958,6 +961,8 @@ class ShoppingTest(unittest.TestCase):
                 self.assertEqual([call.args[0] for call in tools.exclude_action.call_args_list],
                                  ["navigate", "input", "evaluate", "add_product_plus"])
                 guard = module.Agent.call_args.kwargs["register_new_step_callback"]
+                self.assertIn("explicit current branch/address", module.Agent.call_args.kwargs["task"])
+                self.assertIn("Without a requested location", module.Agent.call_args.kwargs["task"])
                 node = SimpleNamespace(get_meaningful_text_for_llm=lambda: "Add to cart")
                 state = SimpleNamespace(url=SITE, dom_state=SimpleNamespace(selector_map={1: node}))
                 action = SimpleNamespace(model_dump=lambda **kwargs: {"click": {"index": 1}})
@@ -1427,7 +1432,10 @@ class ShoppingTest(unittest.TestCase):
             self.assertIn("Do NOT\nclick the header CHECKOUT control to add an item", prompt)
             self.assertIn("Nadec Fresh Milk", prompt)
             for requirement in ("name, brand, or package_size", "not price or SKU", "unchanged copies",
-                                "first least-expensive eligible candidate", "same recorded outcome"):
+                                "first least-expensive eligible candidate", "same recorded outcome",
+                                "Capture qualifying search-result evidence once",
+                                "Do not browse the whole catalog", "Do not reopen results",
+                                "only when required evidence is missing", "Continue from the current browser page"):
                 with self.subTest(requirement=requirement):
                     self.assertIn(requirement.casefold(), " ".join(prompt.casefold().split()))
             self.assertNotIn("Shoppingsteps.json", shopping_task("https://example.com", selected))

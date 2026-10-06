@@ -2,16 +2,16 @@
 <!-- uizze:product-schema 1 -->
 
 ## Platform
-web
+Telegram primary; optional local web
 
 ## Stack
-Confirmed: lightweight Python web server and plain HTML/CSS/JavaScript; replace Telegram as the active shopping controller.
+Python Telegram voice/text handlers use the existing validated planner, SQLite and Browser Use shopping workflow. ElevenLabs supplies Arabic/English transcription and optional spoken audio. The optional local Cloudflare Think voice page remains stopped while Telegram owns the profile.
 
 ## Users
-Private, English-language phone use by the existing shopping-app owner.
+Private Telegram use by the authorized shopping-app owner, with Arabic, English and mixed voice input, inline approval and spoken replies.
 
 ## Product Purpose
-Edit a grocery list without commands, prepare a Tamimi cart, and review verified results before manual checkout.
+Speak or type groceries, review the full merged shopping list and exact changes, press Run shop, then review cart results before manual checkout.
 
 ## Capabilities and Constraints
 Existing shopping.py workflow and SQLite remain authoritative. Quantities mean purchasable units. Preserve live cart items. Block list changes during shopping. Never retry shopping automatically or place orders. Keep credentials and diagnostics private. Stop Telegram before using the shared browser profile from the web app.

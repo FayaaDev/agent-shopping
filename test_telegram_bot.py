@@ -38,6 +38,24 @@ def shopping_result(mode="automatic_substitution"):
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_voice_text_callbacks_registered_without_replaying_old_updates(self):
+        from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(bot, "configuration", return_value=("123:abc", 42, Path(directory) / "shopping.db")), \
+                patch.object(Application, "run_polling", autospec=True) as polling, \
+                patch("sys.argv", ["telegram_bot.py"]):
+            bot.main()
+        application = polling.call_args.args[0]
+        handlers = application.handlers[0]
+        commands = set().union(*(handler.commands for handler in handlers if isinstance(handler, CommandHandler)))
+        self.assertIn("status", commands)
+        self.assertIn("cancel", commands)
+        self.assertEqual(sum(isinstance(handler, MessageHandler) for handler in handlers), 2)
+        self.assertEqual(sum(isinstance(handler, CallbackQueryHandler) for handler in handlers), 1)
+        self.assertTrue(polling.call_args.kwargs["drop_pending_updates"])
+        self.assertEqual(polling.call_args.kwargs["bootstrap_retries"], 0)
+        self.assertIn("callback_query", polling.call_args.kwargs["allowed_updates"])
+
     def test_required_environment_and_absolute_database(self):
         with patch("telegram_bot.load_dotenv"), patch.dict(os.environ, {}, clear=True):
             for token, user in (("", "42"), ("bad", "42"), ("123:abc", ""),

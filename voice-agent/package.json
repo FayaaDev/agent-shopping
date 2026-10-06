@@ -1,0 +1,35 @@
+{
+  "name": "shopping-voice-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "npm run build && wrangler dev --ip 127.0.0.1 --port 8787",
+    "types": "wrangler types",
+    "check": "tsc --noEmit && tsc -p tsconfig.worker.json",
+    "test": "tsx --test src/*.test.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^4",
+    "@cloudflare/ai-chat": "latest",
+    "@cloudflare/shell": "latest",
+    "@cloudflare/think": "latest",
+    "@cloudflare/voice": "latest",
+    "@cloudflare/voice-elevenlabs": "latest",
+    "agents": "latest",
+    "ai": "^7",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsx": "latest",
+    "typescript": "^5.9",
+    "vite": "latest",
+    "wrangler": "latest"
+  },
+  "overrides": {
+    "guarded-fetch": {
+      "undici": "7.29.1"
+    }
+  }
+}

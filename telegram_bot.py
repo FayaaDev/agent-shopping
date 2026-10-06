@@ -13,11 +13,11 @@ import tempfile
 import uuid
 
 from dotenv import load_dotenv
-from telegram.ext import Application, CommandHandler
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 from shopping import error_result
 
 PROJECT = Path(__file__).resolve().parent
-HELP = "/add <multiword name> <positive quantity>\n/clear\n/list\n/shop [location]\n/help\nShopping stops for manual approval; no payment or order is placed."
+HELP = "Send an Arabic/English voice message or text grocery request. Review the merged list, then press Run shop. Nothing changes before approval.\n/cancel — discard voice/text draft\n/status — check the confirmed run\n/add <multiword name> <positive quantity>\n/clear\n/list\n/shop [location]\n/help\nShopping stops for manual approval; no payment or order is placed."
 OUTPUT_LIMIT = 65536
 ERROR_PHASES = frozenset("config db_open list_read browser_startup readiness readiness_output cart_planning cart_tools cart_agent cart_output assessment persistence result_output cleanup subprocess result_file result_format interrupted".split())
 ERROR_TYPES = frozenset("Error Exception RuntimeError ValueError TypeError KeyError AttributeError OSError FileNotFoundError PermissionError TimeoutError JSONDecodeError ValidationError APIError APIConnectionError APIStatusError RateLimitError AuthenticationError CancelledError KeyboardInterrupt".split())
@@ -442,20 +442,42 @@ async def error_handler(update, context):
     pass
 
 
+async def check_configuration(token):
+    from telegram import Bot
+    result = {"telegram": False, "model": bool(os.getenv("OPENAI_API_KEY")),
+              "speech": bool(os.getenv("ELEVENLABS_API_KEY"))}
+    try:
+        async with Bot(token=token) as client:
+            me = await client.get_me()
+        result.update(telegram=True, bot=me.username)
+    except Exception:
+        pass
+    return result
+
+
 def main():
+    from telegram_voice import TelegramVoiceShopping
     try:
         token, user, db = configuration()
     except ValueError as exc:
         raise SystemExit(str(exc)) from None
-    adapter = TelegramShopping(user, db)
+    if sys.argv[1:] == ["--check"]:
+        result = asyncio.run(check_configuration(token))
+        print(json.dumps(result))
+        raise SystemExit(0 if result["telegram"] else 1)
+    adapter = TelegramVoiceShopping(user, db)
     application = (Application.builder().token(token).post_stop(adapter.shutdown)
                    .post_shutdown(adapter.shutdown).build())
     for command, handler in (("start", adapter.help), ("help", adapter.help),
                              ("add", adapter.add), ("clear", adapter.clear),
-                             ("list", adapter.list), ("shop", adapter.shop)):
+                              ("list", adapter.list), ("shop", adapter.shop),
+                              ("status", adapter.status), ("cancel", adapter.cancel)):
         application.add_handler(CommandHandler(command, handler))
+    application.add_handler(MessageHandler(filters.VOICE, adapter.voice))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, adapter.text))
+    application.add_handler(CallbackQueryHandler(adapter.callback, pattern=r"^voice:(run|cancel):[0-9a-f]{32}$"))
     application.add_error_handler(error_handler)
-    application.run_polling(bootstrap_retries=0, drop_pending_updates=True, allowed_updates=["message"])
+    application.run_polling(bootstrap_retries=0, drop_pending_updates=True, allowed_updates=["message", "callback_query"])
 
 
 if __name__ == "__main__":
